@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <array>
+#include <algorithm>
 #include <windows.h>
 #include <conio.h>
 
@@ -74,14 +75,20 @@ private:
 class FlashCardApp : public MenuScreen {
 public:
     FlashCardApp() : 
-    m_EnterPoller(VK_RETURN) { }
+    m_UpPoller(VK_UP), 
+    m_DownPoller(VK_DOWN), 
+    m_EnterPoller(VK_RETURN),
+    m_EscPoller(VK_ESCAPE) { }
     
     void run() {
         enterScreen();
     }
 private:    
     int m_SelectedOption{0};
+    KeyPoller m_UpPoller;
+    KeyPoller m_DownPoller;
     KeyPoller m_EnterPoller;
+    KeyPoller m_EscPoller;
 
     enum MenuOperation {
         CREATE_CARD = 0x00,
@@ -122,13 +129,25 @@ private:
     }
 
     void handleInputs() override {
-        char input = _getch();
-        if (input == '1' || input == '2' || input == '3' || input == '4' || input == '5' || input == '6') {
-            m_SelectedOption = input - 48 - 1; // 48 is ascii value of 0
+        m_UpPoller.poll();
+        m_DownPoller.poll();
+        m_EnterPoller.poll();
+        m_EscPoller.poll();
+
+        if(m_EscPoller.keyDown()) {
+            exitScreen();
+            return;
+        }
+
+        if(m_UpPoller.keyDown()) {
+            m_SelectedOption--;
+            updateScreen();
+        } else if(m_DownPoller.keyDown()) {
+            m_SelectedOption++;
             updateScreen();
         }
 
-        m_EnterPoller.poll();
+        m_SelectedOption = std::clamp(m_SelectedOption, 0, MenuOperation::OPERATION_COUNT - 1);
 
         if(m_EnterPoller.keyDown()) {
             executeSelectedOption();
