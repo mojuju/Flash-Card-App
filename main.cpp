@@ -72,13 +72,57 @@ private:
     bool m_UpdateScreen;
 };
 
+class CreateCardScreen : public MenuScreen {
+private:
+    CreateCardScreen() = default;
+
+    void displayContent() override {
+        std::cout << "Create cards" << std::endl;
+        Sleep(2000);
+        exitScreen();
+    }
+
+    friend class FlashCardApp;
+};
+
+class ReviewCardsScreen : public MenuScreen {
+private:
+    ReviewCardsScreen() = default;
+    
+    void displayContent() override {
+        std::cout << "Review cards" << std::endl;
+        Sleep(2000);
+        exitScreen();
+    }
+
+    friend class FlashCardApp;
+};
+
+class CheckProgressScreen : public MenuScreen {
+private:
+    CheckProgressScreen() = default;
+
+    void displayContent() override {
+        std::cout << "Check progress" << std::endl;
+        Sleep(2000);
+        exitScreen();
+    }
+
+    friend class FlashCardApp;
+};
+
+
 class FlashCardApp : public MenuScreen {
 public:
     FlashCardApp() : 
     m_UpPoller(VK_UP), 
     m_DownPoller(VK_DOWN), 
     m_EnterPoller(VK_RETURN),
-    m_EscPoller(VK_ESCAPE) { }
+    m_EscPoller(VK_ESCAPE),
+    m_IgnoreFirstEnter(true),
+    m_CreateCardScreen(),
+    m_ReviewCardsScreen(),
+    m_CheckProgressScreen() { }
     
     void run() {
         enterScreen();
@@ -89,6 +133,11 @@ private:
     KeyPoller m_DownPoller;
     KeyPoller m_EnterPoller;
     KeyPoller m_EscPoller;
+    bool m_IgnoreFirstEnter;
+
+    CreateCardScreen m_CreateCardScreen;
+    ReviewCardsScreen m_ReviewCardsScreen;
+    CheckProgressScreen m_CheckProgressScreen;
 
     enum MenuOperation {
         CREATE_CARD = 0x00,
@@ -155,12 +204,20 @@ private:
     }
 
     void executeSelectedOption() {
+        if(m_IgnoreFirstEnter) {
+            m_IgnoreFirstEnter = false;
+            return;
+        }
+
         switch(m_SelectedOption) {
             case MenuOperation::CREATE_CARD:
+                m_CreateCardScreen.enterScreen();
                 break;
             case MenuOperation::REVIEW_CARDS:
+                m_ReviewCardsScreen.enterScreen();
                 break;
             case MenuOperation::CHECK_PROGRESS:
+                m_CheckProgressScreen.enterScreen();
                 break;
             case MenuOperation::LOAD_CARDS:
                 break;
@@ -170,6 +227,8 @@ private:
                 exitScreen();
                 break;
         }
+
+        updateScreen();
     }
 };
 
