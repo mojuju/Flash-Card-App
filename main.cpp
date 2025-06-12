@@ -4,6 +4,25 @@
 #include <windows.h>
 #include <conio.h>
 
+
+class KeyPoller {
+public:
+    KeyPoller(int key) :  m_Key(key) {}
+
+    void poll() {
+        m_LastPolledState = m_PolledState;
+        m_PolledState = GetKeyState(m_Key) & 0x8000;
+    }
+
+    bool keyDown() const {
+        return m_PolledState & !m_LastPolledState;
+    }
+private:
+    int m_Key;
+    bool m_PolledState{};
+    bool m_LastPolledState{};
+};
+
 class MenuScreen {
 protected:
     MenuScreen() : m_Running(true), m_UpdateScreen(true) {}
@@ -54,13 +73,15 @@ private:
 
 class FlashCardApp : public MenuScreen {
 public:
-    FlashCardApp() = default;
+    FlashCardApp() : 
+    m_EnterPoller(VK_RETURN) { }
     
     void run() {
         enterScreen();
     }
 private:    
     int m_SelectedOption{0};
+    KeyPoller m_EnterPoller;
 
     enum MenuOperation {
         CREATE_CARD = 0x00,
@@ -105,6 +126,12 @@ private:
         if (input == '1' || input == '2' || input == '3' || input == '4' || input == '5' || input == '6') {
             m_SelectedOption = input - 48 - 1; // 48 is ascii value of 0
             updateScreen();
+        }
+
+        m_EnterPoller.poll();
+
+        if(m_EnterPoller.keyDown()) {
+            executeSelectedOption();
         }
     }
 
