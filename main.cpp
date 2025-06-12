@@ -2,20 +2,65 @@
 #include <string>
 #include <array>
 #include <windows.h>
+#include <conio.h>
 
-class FlashCardApp {
+class MenuScreen {
+protected:
+    MenuScreen() : m_Running(true), m_UpdateScreen(true) {}
+
+    virtual void displayContent() = 0;
+    virtual void handleInputs() { };
+
+    void exitScreen() {
+        m_Running = false;
+        flushKeyboardBuffer();
+    }
+
+    void clearScreen() const {
+        std::cout << "\033[2J\033[H";
+    }
+
+    void updateScreen() {
+        m_UpdateScreen = true;
+    }
+    
+    void enterScreen() {
+        m_Running = true;
+        m_UpdateScreen = true;
+
+        while(m_Running) {
+            flushKeyboardBuffer();
+
+            if(m_UpdateScreen) {
+                m_UpdateScreen = false;
+                clearScreen();
+                displayContent();
+            }
+            handleInputs();
+
+            Sleep(60);
+        }
+    }
+
+    void flushKeyboardBuffer() const {
+        while (_kbhit()) {
+            _getch();
+        }
+    }
+private:
+    bool m_Running;
+    bool m_UpdateScreen;
+};
+
+class FlashCardApp : public MenuScreen {
 public:
     FlashCardApp() = default;
     
     void run() {
-        while(m_Running) {
-            displayContent();
-            Sleep(30);
-        }
+        enterScreen();
     }
-private:
+private:    
     int m_SelectedOption{0};
-    bool m_Running{true};
 
     enum MenuOperation {
         CREATE_CARD = 0x00,
@@ -55,6 +100,14 @@ private:
         }
     }
 
+    void handleInputs() override {
+        char input = _getch();
+        if (input == '1' || input == '2' || input == '3' || input == '4' || input == '5' || input == '6') {
+            m_SelectedOption = input - 48 - 1; // 48 is ascii value of 0
+            updateScreen();
+        }
+    }
+
     void executeSelectedOption() {
         switch(m_SelectedOption) {
             case MenuOperation::CREATE_CARD:
@@ -71,14 +124,6 @@ private:
                 exitScreen();
                 break;
         }
-    }
-
-    void exitScreen() {
-        m_Running = false;
-    }
-
-    void clearScreen() const {
-        std::cout << "\033[2J\033[H";
     }
 };
 
