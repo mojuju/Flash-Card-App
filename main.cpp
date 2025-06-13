@@ -26,13 +26,27 @@ private:
 
 class Card {
 public:
+    enum Difficulty : unsigned int {
+        HARD = 0x01,
+        MEDIUM = 0x02,
+        EASY = 0x03,
+
+        DIFFICULTY_COUNT = 0x04
+    };
+
     std::string_view getFront() const { return m_Front; }
     std::string_view getBack() const { return m_Back; }
+    unsigned int getScore() const { return m_Score; }
 private:
     Card(const std::string& front, const std::string& back) 
-    : m_Front(front), m_Back(back) { }
+    : m_Front(front), m_Back(back), m_Score(0) { }
 
     std::string m_Front, m_Back;
+    unsigned int m_Score;
+
+    void addScore(Card::Difficulty difficulty) {
+        m_Score += static_cast<unsigned int>(difficulty);
+    }
 
     friend class CardManager;
     friend class ReviewCardsScreen;
@@ -85,7 +99,7 @@ protected:
             }
             handleInputs();
 
-            Sleep(60);
+            Sleep(30);
         }
     }
 
@@ -136,8 +150,41 @@ private:
     CardManager& m_ParentCardManager;
     
     void displayContent() override {
-        std::cout << "Review cards" << std::endl;
-        Sleep(2000);
+        if(m_ParentCardManager.getCards().empty()) {
+            std::cout << "############## Review Flash Cards ##############" << std::endl << std::endl;
+            std::cout << "              NO CARDS CREATED YET              " << std::endl << std::endl;
+            std::cout << "################################################" << std::endl;
+            std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
+            while (_getch() != '\r');
+            exitScreen();
+            return;
+        }
+
+        int i = 1;
+        for(auto& card: m_ParentCardManager.getCards()) {
+            clearScreen();
+            std::cout << "############## Review Flash Cards ##############" << std::endl << std::endl;
+            std::cout << " Question " << i << " : " << card.getFront() << std::endl << std::endl;
+            std::cout << "################################################" << std::endl;
+            std::cout << std::endl << "[PRESS ENTER] Answer: ";
+            while (_getch() != '\r');
+            std::cout << card.getBack();
+            Sleep(1000);
+            std::cout << std::endl << std::endl << "[1] Hard [2] Medium [3] Easy" << std::endl;
+
+            char input;
+            while (true) {
+                input = _getch();
+                if (input == '1' || input == '2' || input == '3') {
+                    card.addScore(static_cast<Card::Difficulty>(input - '0'));
+                    std::cout << std::endl << "Finished Reviewing card " << i++ << "." << std::endl;
+                    std::cout << std::endl << "################################################" << std::endl;
+                    Sleep(1000);
+                    break;
+                }
+            }
+        }
+
         exitScreen();
     }
 
@@ -163,7 +210,7 @@ private:
 
         int i = 1;
         for(const auto& card : m_ParentCardManager.getCards()) {
-            std::cout << i++ << ". " << card.getFront() << std::endl;
+            std::cout << i++ << ". " << card.getFront() << " | Score: " << card.getScore() << std::endl;
         }
         std::cout << std::endl << "################################################" << std::endl;
         std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
