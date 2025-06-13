@@ -1,10 +1,10 @@
 #include <iostream>
 #include <string>
 #include <array>
+#include <vector>
 #include <algorithm>
 #include <windows.h>
 #include <conio.h>
-
 
 class KeyPoller {
 public:
@@ -22,6 +22,33 @@ private:
     int m_Key;
     bool m_PolledState{};
     bool m_LastPolledState{};
+};
+
+class Card {
+public:
+    std::string_view getFront() const { return m_Front; }
+    std::string_view getBack() const { return m_Back; }
+private:
+    Card(const std::string& front, const std::string& back) 
+    : m_Front(front), m_Back(back) { }
+
+    std::string m_Front, m_Back;
+
+    friend class CardManager;
+    friend class ReviewCardsScreen;
+};
+
+class CardManager {
+public:
+    CardManager() = default;
+
+    void addCard(const std::string& front, const std::string& back) {
+        m_Cards.push_back(std::move(Card(front, back)));
+    }
+
+    std::vector<Card>& getCards() { return m_Cards; }
+private:
+    std::vector<Card> m_Cards;
 };
 
 class MenuScreen {
@@ -74,12 +101,29 @@ private:
 
 class CreateCardScreen : public MenuScreen {
 private:
-    CreateCardScreen() = default;
+    CreateCardScreen(CardManager& cardmanager) : m_ParentCardManager(cardmanager) { }
+
+    CardManager& m_ParentCardManager;
 
     void displayContent() override {
-        std::cout << "Create cards" << std::endl;
-        Sleep(2000);
+        std::string front, back;
+
+        std::cout << "Input front of the card: ";
+        takeStringInput(front);
+        std::cout << "Input back of the card: ";
+        takeStringInput(back);
+
+        m_ParentCardManager.addCard(front, back);
+        std::cout << "Card has been created!" << std::endl;
+        Sleep(1000);
         exitScreen();
+    }
+
+    void takeStringInput(std::string& str) {
+        while (true) {
+            std::getline(std::cin, str);
+            if (!str.empty()) break;
+        }
     }
 
     friend class FlashCardApp;
@@ -87,7 +131,9 @@ private:
 
 class ReviewCardsScreen : public MenuScreen {
 private:
-    ReviewCardsScreen() = default;
+    ReviewCardsScreen(CardManager& cardmanager) : m_ParentCardManager(cardmanager) { }
+
+    CardManager& m_ParentCardManager;
     
     void displayContent() override {
         std::cout << "Review cards" << std::endl;
@@ -100,11 +146,28 @@ private:
 
 class CheckProgressScreen : public MenuScreen {
 private:
-    CheckProgressScreen() = default;
+    CheckProgressScreen(CardManager& cardmanager) 
+    : m_ParentCardManager(cardmanager) { }
+
+    CardManager& m_ParentCardManager;
 
     void displayContent() override {
-        std::cout << "Check progress" << std::endl;
-        Sleep(2000);
+        std::cout << "############## Flash Card Progress #############" << std::endl << std::endl;
+
+        if(m_ParentCardManager.getCards().empty()) {
+            std::cout << "              NO CARDS CREATED YET              " << std::endl << std::endl;
+            std::cout << "################################################" << std::endl;
+            std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
+            return;
+        }
+
+        int i = 1;
+        for(const auto& card : m_ParentCardManager.getCards()) {
+            std::cout << i++ << ". " << card.getFront() << std::endl;
+        }
+        std::cout << std::endl << "################################################" << std::endl;
+        std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
+        while (_getch() != '\r');
         exitScreen();
     }
 
@@ -120,9 +183,9 @@ public:
     m_EnterPoller(VK_RETURN),
     m_EscPoller(VK_ESCAPE),
     m_IgnoreFirstEnter(true),
-    m_CreateCardScreen(),
-    m_ReviewCardsScreen(),
-    m_CheckProgressScreen() { }
+    m_CreateCardScreen(m_CardManager),
+    m_ReviewCardsScreen(m_CardManager),
+    m_CheckProgressScreen(m_CardManager) { }
     
     void run() {
         enterScreen();
@@ -134,6 +197,8 @@ private:
     KeyPoller m_EnterPoller;
     KeyPoller m_EscPoller;
     bool m_IgnoreFirstEnter;
+
+    CardManager m_CardManager;
 
     CreateCardScreen m_CreateCardScreen;
     ReviewCardsScreen m_ReviewCardsScreen;
@@ -159,9 +224,8 @@ private:
         "Exit"
     };
 
-    void displayContent() {
-        clearScreen();
-        std::cout << "Flash Card App" << std::endl;
+    void displayContent() override {
+        std::cout << "################ Flash Card App ################" << std::endl;
         for (int i = 0; i < MenuOperation::OPERATION_COUNT; i++) {
             bool isSelected = (m_SelectedOption == i);
 
@@ -175,6 +239,7 @@ private:
                 std::cout << "\033[0m";
             }
         }
+        std::cout << "################################################" << std::endl;
     }
 
     void handleInputs() override {
