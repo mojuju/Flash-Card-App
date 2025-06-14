@@ -3,6 +3,9 @@
 #include <array>
 #include <vector>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+
 #include <windows.h>
 #include <conio.h>
 
@@ -41,6 +44,9 @@ private:
     Card(const std::string& front, const std::string& back) 
     : m_Front(front), m_Back(back), m_Score(0) { }
 
+    Card(const std::string& front, const std::string& back, unsigned int score) 
+    : m_Front(front), m_Back(back), m_Score(score) { }
+
     std::string m_Front, m_Back;
     unsigned int m_Score;
 
@@ -58,6 +64,44 @@ public:
 
     void addCard(const std::string& front, const std::string& back) {
         m_Cards.push_back(std::move(Card(front, back)));
+    }
+
+    void saveCards(const std::filesystem::path& path) {
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream file(path);
+        if (!file) {
+            std::cerr << "Failed to open file for saving: " << path << '\n';
+            return;
+        }
+
+        for (const auto& card : m_Cards) {
+            file << card.getFront() << "|||"
+                 << card.getBack() << "|||"
+                 << card.getScore() << '\n';
+        }
+    }
+
+    void loadCards(const std::filesystem::path& path) {
+        std::ifstream file(path);
+        if (!file) {
+            std::cerr << "Failed to open file for loading: " << path << std::endl;
+            return;
+        }
+
+        m_Cards.clear();
+
+        std::string line;
+        while (std::getline(file, line)) {
+            size_t firstSep = line.find("|||");
+            size_t secondSep = line.find("|||", firstSep + 3);
+
+            std::string front = line.substr(0, firstSep);
+            std::string back = line.substr(firstSep + 3, secondSep - (firstSep + 3));
+            std::string scoreStr = line.substr(secondSep + 3);
+
+            unsigned int score = std::stoul(scoreStr);
+            m_Cards.emplace_back(Card(front, back, score));
+        }
     }
 
     std::vector<Card>& getCards() { return m_Cards; }
@@ -205,6 +249,8 @@ private:
             std::cout << "              NO CARDS CREATED YET              " << std::endl << std::endl;
             std::cout << "################################################" << std::endl;
             std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
+            while (_getch() != '\r');
+            exitScreen();
             return;
         }
 
@@ -332,8 +378,10 @@ private:
                 m_CheckProgressScreen.enterScreen();
                 break;
             case MenuOperation::LOAD_CARDS:
+                m_CardManager.loadCards("cards/deck.dat");
                 break;
             case MenuOperation::SAVE_CARDS:
+                m_CardManager.saveCards("cards/deck.dat");
                 break;
             case MenuOperation::EXIT:
                 exitScreen();
