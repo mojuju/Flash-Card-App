@@ -40,18 +40,44 @@ public:
     std::string_view getFront() const { return m_Front; }
     std::string_view getBack() const { return m_Back; }
     unsigned int getScore() const { return m_Score; }
+    bool isDue() const {
+        time_t now = std::time(nullptr);
+        return difftime(now, m_LastReviewed) >= m_IntervalSeconds;
+    }
 private:
     Card(const std::string& front, const std::string& back) 
     : m_Front(front), m_Back(back), m_Score(0) { }
 
-    Card(const std::string& front, const std::string& back, unsigned int score) 
-    : m_Front(front), m_Back(back), m_Score(score) { }
+    Card(const std::string& front, const std::string& back, unsigned int score, unsigned int interval, time_t lastReviewed) 
+    : m_Front(front), m_Back(back), m_Score(score), m_IntervalSeconds(interval), m_LastReviewed(lastReviewed) { }
+
+    static constexpr unsigned int MIN_INTERVAL = 20;
 
     std::string m_Front, m_Back;
     unsigned int m_Score;
+    unsigned int m_IntervalSeconds = MIN_INTERVAL;
+    time_t m_LastReviewed = 0;
 
-    void addScore(Card::Difficulty difficulty) {
-        m_Score += static_cast<unsigned int>(difficulty);
+    void addScore(Difficulty difficulty) {
+        time_t now = std::time(nullptr);
+        m_LastReviewed = now;
+
+        switch (difficulty) {
+            case Difficulty::HARD:
+                m_Score = std::max(1u, m_Score);
+                m_IntervalSeconds = std::max(MIN_INTERVAL, m_IntervalSeconds / 2);
+                break;
+            case Difficulty::MEDIUM:
+                m_Score++;
+                m_IntervalSeconds += (MIN_INTERVAL * 3) / 2;
+                break;
+            case Difficulty::EASY:
+                m_Score += 2;
+                m_IntervalSeconds = m_IntervalSeconds * 2;
+                break;
+            default:
+                break;
+        }
     }
 
     friend class CardManager;
@@ -76,8 +102,10 @@ public:
 
         for (const auto& card : m_Cards) {
             file << card.getFront() << "|||"
-                 << card.getBack() << "|||"
-                 << card.getScore() << '\n';
+                << card.getBack() << "|||"
+                << card.getScore() << "|||"
+                << card.m_IntervalSeconds << "|||"
+                << card.m_LastReviewed << '\n';
         }
     }
 
@@ -92,15 +120,28 @@ public:
 
         std::string line;
         while (std::getline(file, line)) {
-            size_t firstSep = line.find("|||");
-            size_t secondSep = line.find("|||", firstSep + 3);
+            size_t pos1 = line.find("|||");
+            if (pos1 == std::string::npos) continue;
 
-            std::string front = line.substr(0, firstSep);
-            std::string back = line.substr(firstSep + 3, secondSep - (firstSep + 3));
-            std::string scoreStr = line.substr(secondSep + 3);
+            size_t pos2 = line.find("|||", pos1 + 3);
+            if (pos2 == std::string::npos) continue;
+
+            size_t pos3 = line.find("|||", pos2 + 3);
+            if (pos3 == std::string::npos) continue;
+
+            size_t pos4 = line.find("|||", pos3 + 3);
+            if (pos4 == std::string::npos) continue;
+
+            std::string front = line.substr(0, pos1);
+            std::string back = line.substr(pos1 + 3, pos2 - (pos1 + 3));
+            std::string scoreStr = line.substr(pos2 + 3, pos3 - (pos2 + 3));
+            std::string intervalStr = line.substr(pos3 + 3, pos4 - (pos3 + 3));
+            std::string reviewedStr = line.substr(pos4 + 3);
 
             unsigned int score = std::stoul(scoreStr);
-            m_Cards.emplace_back(Card(front, back, score));
+            unsigned int interval = std::stoul(intervalStr);
+            time_t lastReviewed = static_cast<time_t>(std::stoll(reviewedStr));
+            m_Cards.emplace_back(Card(front, back, score, interval, lastReviewed));
         }
     }
 
@@ -206,6 +247,10 @@ private:
 
         int i = 1;
         for(auto& card: m_ParentCardManager.getCards()) {
+            if(!card.isDue()) {
+                continue;
+            }
+
             clearScreen();
             std::cout << "############## Review Flash Cards ##############" << std::endl << std::endl;
             std::cout << " Question " << i << " : " << card.getFront() << std::endl << std::endl;
