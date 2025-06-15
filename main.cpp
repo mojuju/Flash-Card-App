@@ -245,13 +245,17 @@ private:
             return;
         }
 
+        bool atleastOneReview = false;
+
         int i = 1;
         for(auto& card: m_ParentCardManager.getCards()) {
             if(!card.isDue()) {
                 continue;
             }
 
+            atleastOneReview = true;
             clearScreen();
+
             std::cout << "############## Review Flash Cards ##############" << std::endl << std::endl;
             std::cout << " Question " << i << " : " << card.getFront() << std::endl << std::endl;
             std::cout << "################################################" << std::endl;
@@ -272,6 +276,14 @@ private:
                     break;
                 }
             }
+        }
+
+        if(!atleastOneReview) {
+            std::cout << "############## Review Flash Cards ##############" << std::endl << std::endl;
+            std::cout << "     You have finished all of your reviews      " << std::endl << std::endl;
+            std::cout << "################################################" << std::endl;
+            std::cout << std::endl << "(Press ENTER to go back)" << std::endl;
+            while (_getch() != '\r');
         }
 
         exitScreen();
